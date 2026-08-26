@@ -1,11 +1,13 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import plotly.express as px
 
-st.set_page_config(page_title="Customer Churn Predictor", page_icon="🔮")
+# Wide layout configuration
+st.set_page_config(page_title="Telco Churn Predictor", page_icon="🔮", layout="wide")
 
 st.title("🔮 Telco Customer Churn Predictor")
-st.write("Adjust customer attributes to test real-time churn predictions.")
+st.write("Adjust customer attributes in the sidebar to test real-time churn predictions and evaluate risk drivers.")
 
 @st.cache_resource
 def load_assets():
@@ -25,7 +27,10 @@ contract = st.sidebar.selectbox("Contract Type", ["Month-to-month", "One year", 
 internet = st.sidebar.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
 payment = st.sidebar.selectbox("Payment Method", ["Electronic check", "Mailed check", "Bank transfer", "Credit card"])
 
-if st.button("Calculate Churn Risk"):
+# Layout setup for main view
+st.markdown("---")
+
+if st.button("Calculate Churn Risk", type="primary"):
     input_dict = {
         'tenure': tenure,
         'MonthlyCharges': monthly_charges,
@@ -41,19 +46,63 @@ if st.button("Calculate Churn Risk"):
 
     input_df = pd.DataFrame([input_dict])
 
+    # Reorder/pad columns to match trained model exact alignment
     for col in model.feature_names_in_:
         if col not in input_df.columns:
             input_df[col] = 0
 
     input_df = input_df[model.feature_names_in_]
 
+    # Calculate Probability
     probability = model.predict_proba(input_df)[0][1] * 100
 
-    st.markdown("---")
-    st.subheader("Prediction Outcome")
+    # 1. Top KPI Summary Cards
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric(label="Churn Probability", value=f"{probability:.1f}%")
+
+    with col2:
+        if probability >= 70:
+            st.metric(label="Risk Category", value="🔴 High Risk")
+        elif probability >= 35:
+            st.metric(label="Risk Category", value="🟡 Medium Risk")
+        else:
+            st.metric(label="Risk Category", value="🟢 Low Risk")
+
+    with col3:
+        annual_val = monthly_charges * 12
+        st.metric(label="Est. Annual Value", value=f"${annual_val:,.2f}")
+
+    st.write("### Churn Probability Score")
+    st.progress(int(probability))
+
+    # 2. Recommendation Callout Box
     if probability >= 70:
-        st.error(f"⚠️ **High Churn Risk: {probability:.1f}%**\n\nRecommendation: Offer retention incentive immediately.")
+        st.error("⚠️ **High Churn Risk:** Recommendation: Offer targeted retention incentive or long-term contract discount immediately.")
     elif probability >= 35:
-        st.warning(f"⚡ **Medium Churn Risk: {probability:.1f}%**\n\nRecommendation: Send customer satisfaction survey.")
+        st.warning("⚡ **Medium Churn Risk:** Recommendation: Send customer satisfaction survey and offer basic add-on perks.")
     else:
-        st.success(f"✅ **Low Churn Risk: {probability:.1f}%**\n\nRecommendation: Standard lifecycle communications.")
+        st.success("✅ **Low Churn Risk:** Recommendation: Standard automated lifecycle communications.")
+
+    # 3. Model Feature Importance Visual
+    st.markdown("---")
+    st.write("### 📊 Top Risk Factor Importance")
+    
+    if hasattr(model, 'feature_importances_'):
+        importances = pd.DataFrame({
+            'Feature': model.feature_names_in_,
+            'Importance': model.feature_importances_
+        }).sort_values('Importance', ascending=True)
+
+        fig = px.bar(
+            importances.tail(8), 
+            x='Importance', 
+            y='Feature', 
+            orientation='h',
+            title="Relative Feature Weighting in Churn Decision",
+            color='Importance',
+            color_continuous_scale='Blues'
+        )
+        fig.update_layout(height=380, margin=dict(l=0, r=0, t=40, b=0))
+        st.plotly_chart(fig, use_container_width=True)
