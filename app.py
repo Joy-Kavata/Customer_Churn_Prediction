@@ -6,7 +6,7 @@ import plotly.express as px
 # Wide layout configuration
 st.set_page_config(page_title="Telco Churn Predictor", page_icon="🔮", layout="wide")
 
-st.title("🔮 Telco Customer Churn Predictor")
+st.title("Telco Customer Churn Predictor")
 st.write("Adjust customer attributes in the sidebar to test real-time churn predictions and evaluate risk drivers.")
 
 @st.cache_resource
@@ -87,7 +87,7 @@ if st.button("Calculate Churn Risk", type="primary"):
 
     # 3. Model Feature Importance Visual
     st.markdown("---")
-    st.write("### 📊 Top Risk Factor Importance")
+    st.write("### Top Risk Factor Importance")
     
     if hasattr(model, 'feature_importances_'):
         importances = pd.DataFrame({
